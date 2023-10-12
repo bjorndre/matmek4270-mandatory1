@@ -169,20 +169,23 @@ class Wave2D:
 class Wave2D_Neumann(Wave2D):
 
     def D2(self, N):
-        raise NotImplementedError
+        """Return second order differentiation matrix"""
+        D = sparse.diags([1, -2, 1], [-1, 0, 1], (N+1, N+1), 'lil')
+        D[0, 1] = 2
+        D[-1, -2] = 2
+        print(D)
+        D /= self.dx**2
+        return D
 
     def ue(self, mx, my):
-        raise NotImplementedError
+        return sp.cos(mx*sp.pi*x)*sp.cos(my*sp.pi*y)*sp.cos(self.w*t)
 
-    def apply_bcs(self):
-        raise NotImplementedError
+    def apply_bcs(self, Unp):
+        return
 
 def test_convergence_wave2d():
     sol = Wave2D()
     r, E, h = sol.convergence_rates(mx=2, my=3)
-    print(r)
-    print(E)
-    print(h)
     assert abs(r[-1]-2) < 1e-2
 
 def test_convergence_wave2d_neumann():
@@ -192,3 +195,4 @@ def test_convergence_wave2d_neumann():
 
 def test_exact_wave2d():
     raise NotImplementedError
+
