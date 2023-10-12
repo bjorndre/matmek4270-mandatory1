@@ -11,23 +11,32 @@ class Wave2D:
     def create_mesh(self, N, sparse=False):
         """Create 2D mesh and store in self.xij and self.yij"""
         # self.xji, self.yij = ...
-        raise NotImplementedError
+        self.N = N
+        self.dx = 1 / N
+        x = np.linspace(0, 1, self.N+1)
+        y = np.linspace(0, 1, self.N+1)
+        self.xij, self.yij = np.meshgrid(x,y, indexing="ij", sparse=sparse)
+        return self.xij, self.yij
 
     def D2(self, N):
         """Return second order differentiation matrix"""
-        raise NotImplementedError
+        D = sparse.diags([1, -2, 1], [-1, 0, 1], (N+1, N+1), 'lil')
+        D[0, :4] = 2, -5, 4, -1
+        D[-1, -4:] = -1, 4, -5, 2
+        D /= self.dx**2
+        return D
 
     @property
     def w(self):
         """Return the dispersion coefficient"""
-        raise NotImplementedError
+        return self.c*np.sqrt((self.mx*np.pi)**2+(self.my*np.pi)**2)
 
     def ue(self, mx, my):
         """Return the exact standing wave"""
         return sp.sin(mx*sp.pi*x)*sp.sin(my*sp.pi*y)*sp.cos(self.w*t)
 
     def initialize(self, N, mx, my):
-        r"""Initialize the solution at $U^{n}$ and $U^{n-1}$
+        """Initialize the solution at $U^{n}$ and $U^{n-1}$
 
         Parameters
         ----------
@@ -36,12 +45,17 @@ class Wave2D:
         mx, my : int
             Parameters for the standing wave
         """
-        raise NotImplementedError
+        Un, Unm = np.zeros((2, N+1, N+1))
+        #Apply initial condition
+        Unm = sp.lambdify((x,y,t) , self.ue(self.mx,self.my))(self.xij, self.yij, 0)
+        Un = sp.lambdify((x,y,t) , self.ue(self.mx,self.my))(self.xij, self.yij, self.dt)
+
+        return Un, Unm
 
     @property
     def dt(self):
         """Return the time step"""
-        raise NotImplementedError
+        return self.cfl*self.dx/self.c
 
     def l2_error(self, u, t0):
         """Return l2-error norm
@@ -53,10 +67,14 @@ class Wave2D:
         t0 : number
             The time of the comparison
         """
-        raise NotImplementedError
+        uj = sp.lambdify((x,y,t) , self.ue(self.mx,self.my))(self.xij, self.yij, t0)
+        return np.sqrt(self.dx*self.dx*np.sum((u-uj)**2))
 
-    def apply_bcs(self):
-        raise NotImplementedError
+    def apply_bcs(self, Unp):
+        Unp[0] = 0
+        Unp[-1] = 0
+        Unp[:, -1] = 0
+        Unp[:, 0] = 0
 
     def __call__(self, N, Nt, cfl=0.5, c=1.0, mx=3, my=3, store_data=-1):
         """Solve the wave equation
@@ -83,7 +101,37 @@ class Wave2D:
         If store_data > 0, then return a dictionary with key, value = timestep, solution
         If store_data == -1, then return the two-tuple (h, l2-error)
         """
-        raise NotImplementedError
+        self.c = c
+        self.cfl = cfl
+        self.mx = mx
+        self.my = my
+
+        self.xij, self.yij = self.create_mesh(N)
+        Unp = np.zeros((N+1, N+1))
+        D = self.D2(N)
+        Un, Unm = self.initialize(N, mx, my)
+        plotdata = {0: Unm.copy()}
+
+        err = []
+        if store_data == 1:
+            plotdata[1] = Un.copy()
+
+        for n in range(1, Nt+1):
+            Unp[:] = 2*Un - Unm + (c*self.dt)**2*(D @ Un + Un @ D.T)
+            self.apply_bcs(Unp)
+            Unm[:] = Un
+            Un[:] = Unp
+            #Find the error
+            err.append(self.l2_error(Un, self.dt*(n+1)))
+            if n % store_data == 0:
+                plotdata[n] = Unm.copy()
+        
+        if store_data > 0:
+            return plotdata
+
+        elif store_data == -1:
+            return (self.dx, err)
+
 
     def convergence_rates(self, m=4, cfl=0.1, Nt=10, mx=3, my=3):
         """Compute convergence rates for a range of discretizations
@@ -132,6 +180,9 @@ class Wave2D_Neumann(Wave2D):
 def test_convergence_wave2d():
     sol = Wave2D()
     r, E, h = sol.convergence_rates(mx=2, my=3)
+    print(r)
+    print(E)
+    print(h)
     assert abs(r[-1]-2) < 1e-2
 
 def test_convergence_wave2d_neumann():
