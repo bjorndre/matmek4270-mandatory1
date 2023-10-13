@@ -173,7 +173,6 @@ class Wave2D_Neumann(Wave2D):
         D = sparse.diags([1, -2, 1], [-1, 0, 1], (N+1, N+1), 'lil')
         D[0, 1] = 2
         D[-1, -2] = 2
-        print(D)
         D /= self.dx**2
         return D
 
@@ -194,5 +193,9 @@ def test_convergence_wave2d_neumann():
     assert abs(r[-1]-2) < 0.05
 
 def test_exact_wave2d():
-    raise NotImplementedError
-
+    sol = Wave2D()
+    solN = Wave2D_Neumann()
+    r, E, h = sol.convergence_rates(cfl=1/np.sqrt(2), mx=3, my=3)
+    rn, En, hn = solN.convergence_rates(cfl=1/np.sqrt(2), mx=3, my=3)
+    #Asserts average l2-error
+    assert abs(np.sum(E)/len(E)) < 10**(-15) and abs(np.sum(En)/len(En)) < 10**(-15)
