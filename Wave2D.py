@@ -127,7 +127,7 @@ class Wave2D:
                 plotdata[n] = Unm.copy()
         
         if store_data > 0:
-            return plotdata
+            return self.xij, self.yij, plotdata
 
         elif store_data == -1:
             return (self.dx, err)
@@ -199,3 +199,23 @@ def test_exact_wave2d():
     rn, En, hn = solN.convergence_rates(cfl=1/np.sqrt(2), mx=3, my=3)
     #Asserts average l2-error
     assert abs(np.sum(E)/len(E)) < 10**(-15) and abs(np.sum(En)/len(En)) < 10**(-15)
+
+def create_movie():
+    import matplotlib.animation as animation
+
+    solN = Wave2D_Neumann()
+    xij, yij, data = solN(1000, 10, cfl=1/np.sqrt(2), store_data=4)
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    frames = []
+    for n, val in data.items():
+        frame = ax.plot_wireframe(xij, yij, val, rstride=2, cstride=2);
+        #frame = ax.plot_surface(xij, yij, val, vmin=-0.5*data[0].max(), 
+        #                        vmax=data[0].max(), cmap=cm.coolwarm,
+        #                        linewidth=0, antialiased=False)
+        frames.append([frame])
+        
+    ani = animation.ArtistAnimation(fig, frames, interval=400, blit=True,
+                                    repeat_delay=1000)
+    ani.save('wavemovie2d.apng', writer='pillow', fps=5) # This animated png opens in a browser
+
+create_movie()
