@@ -204,7 +204,7 @@ def create_movie():
     import matplotlib.animation as animation
 
     solN = Wave2D_Neumann()
-    xij, yij, data = solN(1000, 10, cfl=1/np.sqrt(2), store_data=4)
+    xij, yij, data = solN(100, 33, cfl=1/np.sqrt(2), store_data=3)
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     frames = []
     for n, val in data.items():
